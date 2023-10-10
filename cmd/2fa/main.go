@@ -80,6 +80,14 @@ func main() {
 		var token string
 		fmt.Printf("Type token from authenticator\n")
 		fmt.Scan(&token)
+		if !key.UserEnabled {
+			err = fmt.Errorf("user not enabled to log in")
+			break
+		}
+		if !key.MFAEnabled {
+			err = nil
+			break
+		}
 		err = otp.Validate(token)
 	case "":
 		err = fmt.Errorf("no action specified")
