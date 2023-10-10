@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 
 	"github.com/insomniacslk/mfastore"
 	"github.com/kirsle/configdir"
-	"github.com/sec51/twofactor"
+	"github.com/mdp/qrterminal/v3"
+	// until https://github.com/sec51/twofactor/pull/33 is merged
+	"github.com/insomniacslk/twofactor"
 	"github.com/spf13/pflag"
 )
 
@@ -110,18 +111,12 @@ func generateTOTP(username, name string, digits int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	qrBytes, err := otp.QR()
+	fmt.Println("Scan the QR code below with your authenticator app")
+	u, err := otp.Url()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get OTP URL: %w", err)
 	}
-	// TODO expose the QR code through better means than calling "open qr.png"
-	if err := os.WriteFile("qr.png", qrBytes, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write QR code to file: %w", err)
-	}
-	cmd := exec.Command("open", "qr.png")
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to open QR code image: %w", err)
-	}
+	qrterminal.GenerateHalfBlock(u, qrterminal.L, os.Stdout)
 	var token string
 	fmt.Printf("Type token from authenticator\n")
 	fmt.Scan(&token)
