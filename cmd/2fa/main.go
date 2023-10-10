@@ -21,10 +21,12 @@ var (
 )
 
 var (
-	flagEmail     = pflag.StringP("email", "e", "", "E-mail for 2fa authentication")
-	flagIssuer    = pflag.StringP("issuer", "i", "", "Issuer name (for new TOTP generation)")
-	flagDigits    = pflag.IntP("digits", "d", 6, "Number of digits for TOTP")
-	flagStoreFile = pflag.StringP("store-file", "s", DefaultStoreFile, "Store file, containing keys. It is unencrypted, you are responsible for secure storage of its content")
+	flagUsername    = pflag.StringP("username", "u", "", "E-mail for 2fa authentication")
+	flagIssuer      = pflag.StringP("issuer", "i", "", "Issuer name (for new TOTP generation)")
+	flagDigits      = pflag.IntP("digits", "d", 6, "Number of digits for TOTP")
+	flagStoreFile   = pflag.StringP("store-file", "s", DefaultStoreFile, "Store file, containing keys. It is unencrypted, you are responsible for secure storage of its content")
+	flagUserEnabled = pflag.BoolP("user-enabled", "U", true, "If true, the user can log in")
+	flagMFAEnabled  = pflag.BoolP("mfa-enabled", "M", true, "If true, MFA is required for the user to log in")
 )
 
 func main() {
@@ -41,25 +43,33 @@ func main() {
 	action := pflag.Arg(0)
 	switch action {
 	case "new":
-		if *flagEmail == "" {
-			log.Fatal("Missing --email")
+		if *flagUsername == "" {
+			log.Fatal("Missing --username")
 		}
 		if *flagIssuer == "" {
 			log.Fatal("Missing --issuer")
 		}
 		var totp []byte
-		totp, err = generateTOTP(*flagEmail, *flagIssuer, *flagDigits)
+		totp, err = generateTOTP(*flagUsername, *flagIssuer, *flagDigits)
 		if err != nil {
 			break
 		}
-		// add or overwrite TOTP key for this issuer/email
-		err = store.SetKey(*flagIssuer, *flagEmail, totp)
+		// add or overwrite TOTP key for this issuer/user
+		err = store.SetKey(
+			*flagIssuer,
+			&mfastore.Key{
+				Username:    *flagUsername,
+				Bytes:       totp,
+				UserEnabled: *flagUserEnabled,
+				MFAEnabled:  *flagMFAEnabled,
+			},
+		)
 	case "validate":
 		var (
 			otp *twofactor.Totp
 			key *mfastore.Key
 		)
-		key, err = store.GetKey(*flagIssuer, *flagEmail)
+		key, err = store.GetKey(*flagIssuer, *flagUsername)
 		if err != nil {
 			break
 		}
@@ -87,8 +97,8 @@ func main() {
 	}
 }
 
-func generateTOTP(email, name string, digits int) ([]byte, error) {
-	otp, err := twofactor.NewTOTP(email, name, crypto.SHA1, digits)
+func generateTOTP(username, name string, digits int) ([]byte, error) {
+	otp, err := twofactor.NewTOTP(username, name, crypto.SHA1, digits)
 	if err != nil {
 		return nil, err
 	}

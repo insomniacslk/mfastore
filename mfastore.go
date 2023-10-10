@@ -8,8 +8,10 @@ import (
 )
 
 type Key struct {
-	Email string `json:"email"`
-	Bytes []byte `json:"bytes"`
+	Username    string `json:"username"`
+	Bytes       []byte `json:"bytes"`
+	UserEnabled bool   `json:"account_enabled"`
+	MFAEnabled  bool   `json:"mfa_enabled"`
 }
 
 type Store struct {
@@ -37,27 +39,27 @@ func Load(filename string) (*Store, error) {
 	return store, nil
 }
 
-func (s *Store) GetKey(issuerName, email string) (*Key, error) {
+func (s *Store) GetKey(issuerName, username string) (*Key, error) {
 	issuer, found := s.Issuers[issuerName]
 	if !found {
-		return nil, fmt.Errorf("issuer '%s' not found", issuer)
+		return nil, fmt.Errorf("issuer '%s' not found", issuerName)
 	}
-	key, found := issuer[email]
+	key, found := issuer[username]
 	if !found {
-		return nil, fmt.Errorf("key not found for user '%s' under issuer '%s'", email, issuer)
+		return nil, fmt.Errorf("key not found for user '%s' under issuer '%s'", username, issuerName)
 	}
 	return &key, nil
 }
 
-func (s *Store) SetKey(issuerName, email string, keyBytes []byte) error {
+func (s *Store) SetKey(issuerName string, key *Key) error {
 	if _, found := s.Issuers[issuerName]; !found {
 		log.Printf("Creating new issuer '%s'", issuerName)
 		s.Issuers[issuerName] = make(map[string]Key)
 	}
-	if _, found := s.Issuers[issuerName][email]; !found {
-		log.Printf("Overriding key existing e-mail '%s' under issuer '%s'", email, issuerName)
+	if _, found := s.Issuers[issuerName][key.Username]; !found {
+		log.Printf("Overriding key existing e-mail '%s' under issuer '%s'", key.Username, issuerName)
 	}
-	s.Issuers[issuerName][email] = Key{Email: email, Bytes: keyBytes}
+	s.Issuers[issuerName][key.Username] = *key
 	return nil
 }
 
